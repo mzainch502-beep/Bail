@@ -51,7 +51,7 @@ High-quality video inference needs substantial compute. GitHub Pages cannot run 
 
 - Android: open the published site in Chrome → menu → Add to Home screen / Install.
 - iPhone: open in Safari → Share → Add to Home Screen.
-- Native signed Android/iOS distribution is not shipped in this release. Apple App Store distribution cannot be guaranteed at zero cost.
+- Android beta APK is built by the Build Android APK workflow (Android 10+). It bundles the editor for offline use and saves exports to Downloads/Bail. The beta is debug-signed for sideload testing; production signing is not configured. iOS remains the web app; an APK cannot install on iPhone. Apple App Store distribution cannot be guaranteed at zero cost.
 
 ## Verification
 
@@ -81,3 +81,11 @@ Keep the browser visible while rendering; moving into the background cancels the
 Bail does not claim to outperform paid video models. That requires output comparisons and real model evaluation.
 
 MIT licensed; see LICENSE.
+
+## Android beta
+
+Source lives in `android/`. Web assets are bundled directly from `web/` using WebViewAssetLoader with a secure app-local origin. External links open in the browser; the native download bridge is restricted to bundled app navigation. No broad storage permission is requested. A document picker handles photos, music and project imports.
+
+GitHub builds the debug APK, verifies its signature and uploads it as an artifact. A second job runs launch, native-save and video-export smoke checks on an Android emulator. Android 10 or newer and a current Android System WebView are required. The debug signing identity can change between GitHub runner builds; future betas may require uninstalling the previous APK (back up projects first). Production releases need a durable private signing key, outside source control.
+
+For the Android app, allow the origin `https://appassets.androidplatform.net` on your ComfyUI gateway. The APK bundles the app and does not depend on the Pages URL being enabled.

@@ -3,3 +3,9 @@ test-results/
 playwright-report/
 .DS_Store
 *.log
+
+android/.gradle/
+android/**/build/
+android/local.properties
+*.jks
+*.keystore

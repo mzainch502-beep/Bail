@@ -76,7 +76,17 @@ $('audio-remove').onclick=()=>{stop();project.audio=null;project.audioName='';so
 $('fullscreen').onclick=guard(async()=>{if(document.fullscreenElement)await document.exitFullscreen();else if($('stage').requestFullscreen)await $('stage').requestFullscreen();else throw new Error('Fullscreen is unavailable in this browser.');});
 $('help').onclick=()=>$('help-dialog').showModal();$('privacy').onclick=()=>$('privacy-dialog').showModal();$('save').onclick=()=>{if(!recording)$('save-dialog').showModal();};
 $('save-confirm').onclick=guard(async()=>{project.name=$('project-name').value.trim()||'Untitled story';project.updated=Date.now();await saveProject(structuredClone(project));$('save-dialog').close();refresh();toast('Project saved on this device.');});
-function download(blob,name){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),60000);}
+async function saveNative(blob,name){
+ if(blob.size>200*1024*1024)throw new Error('Export exceeds the 200 MB Android save limit.');
+ const bridge=window.BailAndroid;
+ if(!bridge.beginDownload(name,blob.type.split(';')[0]))throw new Error('Could not create a file in Downloads. Check free storage.');
+ try{
+  for(let i=0;i<blob.size;i+=96*1024){const bytes=new Uint8Array(await blob.slice(i,i+96*1024).arrayBuffer());let text='';for(let k=0;k<bytes.length;k++)text+=String.fromCharCode(bytes[k]);if(!bridge.appendDownload(btoa(text)))throw new Error('Could not save this file. Check free storage.');}
+  if(!bridge.finishDownload())throw new Error('Could not finish saving this file.');
+  toast('Saved to Downloads / Bail');
+ }catch(e){bridge.abortDownload();throw e;}
+}
+function download(blob,name){if(window.BailAndroid){saveNative(blob,name).catch(error);return;}const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),60000);}
 $('backup').onclick=()=>{project.name=$('project-name').value.trim()||'Untitled story';download(new Blob([JSON.stringify(project)],{type:'application/json'}),`${project.name.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,50)||'bail'}-project.json`);toast('Backup downloaded. Keep it somewhere safe.');};
 async function switchView(view){stop();for(const b of document.querySelectorAll('[data-view]'))b.classList.toggle('active',b.dataset.view===view);$('studio-view').hidden=view!=='studio';$('projects-view').hidden=view!=='projects';if(view==='projects')await renderProjects();}
 for(const b of document.querySelectorAll('[data-view]'))b.onclick=guard(()=>{if(!recording)return switchView(b.dataset.view);});
@@ -88,11 +98,12 @@ async function renderProjects(){
 $('import-project').onclick=()=>$('project-file').click();$('project-file').onchange=guard(async()=>{const f=$('project-file').files[0];if(!f)return;if(f.size>40*1024*1024)throw new Error('Project backup is too large (40 MB maximum).');const p=validateProject(JSON.parse(await f.text()));p.id=crypto.randomUUID();await loadProject(p);await saveProject(p);$('project-file').value='';toast('Backup imported and saved.');});
 const templates={brand:{prompt:'Something worth slowing down for. Warm mornings. Good company. A little more everyday magic.',name:'Slow mornings',style:'noir'},launch:{prompt:'A new chapter. A different kind of bold. Designed for what comes next. Make your first move.',name:'The next chapter',style:'editorial'},personal:{prompt:'Small moments. The light on the window. A familiar laugh. Beautifully told.',name:'Small moments',style:'aurora'}};
 for(const b of document.querySelectorAll('[data-template]'))b.onclick=guard(async()=>{if(recording)return;const t=templates[b.dataset.template];await loadProject({...project,id:crypto.randomUUID(),name:t.name,prompt:t.prompt,style:t.style,scenes:compose(t.prompt),audio:null,audioName:''});window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
-function setBusy(value){recording=value;for(const el of document.querySelectorAll('main button,main input,main textarea,main select,header button'))el.disabled=value;if(!value)refresh();}
+function setBusy(value){recording=value;window.__bailRendering=value;for(const el of document.querySelectorAll('main button,main input,main textarea,main select,header button'))el.disabled=value;if(!value)refresh();}
 $('export').onclick=guard(async()=>{
  stop();if(!$('ai-video').hidden&&aiBlob){download(aiBlob,aiFilename||'bail-ai-film.mp4');return;}
  $('export-start').hidden=false;$('download-video').hidden=true;$('export-progress').hidden=true;$('export-status').textContent='';$('export-dialog').showModal();
 });
+$('download-video').onclick=guard(async e=>{if(window.BailAndroid){e.preventDefault();const blob=await (await fetch($('download-video').href)).blob();await saveNative(blob,$('download-video').download);}});
 $('export-cancel').onclick=()=>{renderCancelled=true;if(recorder?.state==='recording')recorder.stop();};
 $('export-dialog').addEventListener('cancel',e=>{if(recording){e.preventDefault();toast('Use Cancel render to stop safely.');}});
 $('export-dialog').querySelector('.dialog-close').onclick=e=>{if(recording){e.preventDefault();toast('Use Cancel render to stop safely.');}};
@@ -157,5 +168,5 @@ $('ai-generate').onclick=guard(async()=>{
  finally{aiBusy=false;$('ai-generate').disabled=false;}
 });
 window.addEventListener('beforeunload',e=>{if(recording||aiBusy){e.preventDefault();e.returnValue='';}});
-if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+if(!window.BailAndroid && 'serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 refresh();requestAnimationFrame(tick);
