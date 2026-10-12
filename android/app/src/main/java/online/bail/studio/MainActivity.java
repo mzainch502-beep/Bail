@@ -110,13 +110,23 @@ public class MainActivity extends Activity {
   webView.evaluateJavascript("(()=>{const d=document.querySelector('dialog[open]');if(!d)return false;if(window.__bailRendering)return true;d.close();return true;})()",handled->{if(!"true".equals(handled))new AlertDialog.Builder(this).setTitle("Close Bail?").setMessage("Save your project before leaving.").setPositiveButton("Close",(d,w)->finish()).setNegativeButton("Stay",null).show();});
  }
  @Override protected void onDestroy() {
-  downloads.abortDownload();
+  downloads.abortDownload();downloads.abortVideo();
   if(fileCallback!=null)fileCallback.onReceiveValue(null);
   if(webView!=null){webView.removeJavascriptInterface("BailAndroid");webView.destroy();}
   super.onDestroy();
  }
 
  public class DownloadsBridge {
+  private NativeVideoEncoder videoEncoder;
+  private String encoderError="";
+  @JavascriptInterface public synchronized String videoError(){return encoderError;}
+  @JavascriptInterface public synchronized boolean beginVideo(String name,int width,int height,int fps){
+   if(videoEncoder!=null)return false;encoderError="";videoEncoder=new NativeVideoEncoder(MainActivity.this);
+   try{videoEncoder.begin(name,width,height,fps);return true;}catch(Exception e){encoderError=e.getMessage();abortVideo();return false;}
+  }
+  @JavascriptInterface public synchronized boolean videoFrame(String data){try{if(videoEncoder==null)return false;videoEncoder.frame(data);return true;}catch(Exception e){encoderError=e.getMessage();abortVideo();return false;}}
+  @JavascriptInterface public synchronized boolean finishVideo(){try{if(videoEncoder==null)return false;videoEncoder.finish();lastSaved=videoEncoder.uri();videoEncoder=null;toast("Saved to Downloads / Bail");return true;}catch(Exception e){encoderError=e.getMessage();abortVideo();return false;}}
+  @JavascriptInterface public synchronized void abortVideo(){if(videoEncoder!=null){videoEncoder.abort();videoEncoder=null;}}
   private Uri pending;
   private OutputStream stream;
   private long bytes;

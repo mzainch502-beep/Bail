@@ -122,8 +122,26 @@ $('download-video').onclick=guard(async e=>{if(window.BailAndroid){e.preventDefa
 $('export-cancel').onclick=()=>{renderCancelled=true;if(recorder?.state==='recording')recorder.stop();};
 $('export-dialog').addEventListener('cancel',e=>{if(recording){e.preventDefault();toast('Use Cancel render to stop safely.');}});
 $('export-dialog').querySelector('.dialog-close').onclick=e=>{if(recording){e.preventDefault();toast('Use Cancel render to stop safely.');}};
+async function renderNativeVideo(){
+ const bridge=window.BailAndroid;stop();motionMode();await renderer.preload(project.scenes);renderer.setSize(project.ratio,Number($('quality').value));
+ const fps=24,frames=Math.ceil(duration(project.scenes)*fps),name=`bail-${project.name.replace(/[^a-z0-9]/gi,'-').slice(0,40)}.mp4`;
+ if(!bridge.beginVideo(name,$('canvas').width,$('canvas').height,fps))throw new Error(bridge.videoError()||'Android could not start the MP4 encoder.');
+ renderCancelled=false;setBusy(true);$('export-start').hidden=true;$('export-cancel').hidden=false;$('export-progress').hidden=false;$('export-progress').value=0;$('download-video').hidden=true;
+ try{
+  for(let i=0;i<frames;i++){
+   if(renderCancelled){bridge.abortVideo();$('export-status').textContent='Render cancelled.';$('export-start').hidden=false;return;}
+   renderer.draw(project,i/fps);const frame=$('canvas').toDataURL('image/jpeg',.88).split(',')[1];
+   if(!bridge.videoFrame(frame))throw new Error(bridge.videoError()||'Android could not encode a video frame.');
+   $('export-progress').value=(i+1)/frames;$('export-status').textContent=`Rendering MP4 · frame ${i+1} / ${frames}`;await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  if(!bridge.finishVideo())throw new Error(bridge.videoError()||'Android could not finish the MP4 file.');
+  $('export-status').textContent='Video saved to Downloads / Bail';$('generation-status').textContent='MP4 generated and saved.';toast('Saved to Downloads / Bail');
+ }catch(e){bridge.abortVideo();$('export-status').textContent=e.message;$('export-start').hidden=false;throw e;}
+ finally{setBusy(false);$('export-cancel').hidden=true;renderer.setSize(project.ratio);draw();}
+}
 $('export-start').onclick=guard(async()=>{
  if(recording)return;
+ if(window.BailAndroid?.beginVideo){await renderNativeVideo();return;}
  if(!window.MediaRecorder||!$('canvas').captureStream)throw new Error('Video export is unavailable in this browser. Try current Chrome or Safari.');
  if(document.hidden)throw new Error('Keep Bail visible while exporting.');
  let stream=null,renderFrame=null;

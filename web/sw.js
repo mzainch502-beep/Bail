@@ -1,4 +1,4 @@
-const CACHE='bail-studio-v2-1';
+const CACHE='bail-studio-v2-2';
 const FILES=['./','./index.html','./styles.css','./app.js','./core.js','./renderer.js','./scene-engine.js','./storage.js','./icon.svg','./manifest.webmanifest'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('bail-studio-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});

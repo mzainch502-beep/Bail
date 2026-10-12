@@ -17,7 +17,7 @@ function lines(c,text,width){
 }
 export class Renderer{
  constructor(canvas){this.canvas=canvas;this.c=canvas.getContext('2d',{alpha:false});this.images=new Map();}
- setSize(ratio,size=720){const [a,b]=RATIOS[ratio];this.canvas.width=a>b?Math.round(size*a/b):size;this.canvas.height=a>b?size:Math.round(size*b/a);}
+ setSize(ratio,size=720){const [a,b]=RATIOS[ratio];this.canvas.width=a>b?Math.round(size*a/b/2)*2:size;this.canvas.height=a>b?size:Math.round(size*b/a/2)*2;}
  async preload(scenes){
   const needed=new Set(scenes.map(s=>s.image).filter(Boolean));
   for(const key of this.images.keys())if(!needed.has(key))this.images.delete(key);

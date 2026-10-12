@@ -4,7 +4,7 @@ Bail is an offline, open-source procedural video and image studio. All generatio
 
 ## Generate from a prompt
 
-- **Generate video** interprets scene descriptions, draws animated illustrations and immediately renders a downloadable WebM/MP4 video. Android saves directly to **Downloads/Bail**. Keep the app open while rendering. Android starts at 480p for better compatibility; the export dialog supports 720p/1080p too.
+- **Generate video** interprets scene descriptions, draws animated illustrations and immediately renders a downloadable WebM/MP4 video. Android uses a native H.264 MP4 encoder and saves directly to **Downloads/Bail**. Android renders frame-by-frame without relying on WebView recording; native MP4 currently contains video only (music is preview-only on Android). Browser exports retain soundtrack support. Keep the app open while rendering. Android starts at 480p for better compatibility; the export dialog supports 720p/1080p too.
 - **Generate image** creates and downloads a PNG from your prompt, at 1080 pixels on the short edge.
 - **Preview & edit scenes** lets you change descriptions, durations, scene order, camera motion, color and typography before a manual export.
 - Content mode: **Illustrated scenes** or **Animated text**. Photos, music, local project saves and JSON backups remain supported.
