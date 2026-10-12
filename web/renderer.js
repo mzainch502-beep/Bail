@@ -27,7 +27,7 @@ export class Renderer{
  }
  draw(project,time){
   const {c,canvas}=this,w=canvas.width,h=canvas.height,s=Math.min(w,h)/720;
-  const {scene,index,local}=frameAt(project.scenes,time);const progress=clamp(local/scene.duration),anim=ease(local/.9);
+  const {scene,index,local}=frameAt(project.scenes,time);const progress=clamp(local/scene.duration),anim=ease((local+.3)/.9);
   c.save();c.fillStyle='#14211b';c.fillRect(0,0,w,h);
   const image=this.images.get(scene.image);
   if(image){
