@@ -2,3 +2,5 @@
 /* Only dialog bodies scroll; close controls stay in a separate, tappable row. */
 dialog{overflow:hidden}dialog>form{display:flex;justify-content:flex-end;height:44px;margin:-12px -12px 6px 0}.dialog-close{float:none;width:44px;height:44px;background:var(--paper);border:1px solid var(--line);border-radius:50%;display:grid;place-items:center}.dialog-body{overflow-y:auto;max-height:calc(85vh - 110px);padding:0 2px 4px;overscroll-behavior:contain}
 @media(max-width:720px){textarea,input:not([type=range]):not([type=color]),select{font-size:16px}label{font-size:12px}dialog p{font-size:14px}}
+/* Size modal panels against the viewport, independently of page scroll width. */
+dialog{position:fixed;inset:auto;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(100vw - 32px);max-width:480px;min-width:0;max-height:calc(100dvh - 32px);margin:0}.dialog-body{max-height:calc(100dvh - 150px);min-width:0}
