@@ -124,7 +124,7 @@ public class MainActivity extends Activity {
   @JavascriptInterface public synchronized boolean beginDownload(String filename,String mime) {
    if(stream!=null) return false;
    if(filename==null||mime==null)return false;
-   if(!mime.startsWith("video/")&&!"application/json".equals(mime))return false;
+   if(!mime.startsWith("video/")&&!"image/png".equals(mime)&&!"application/json".equals(mime))return false;
    String safe=filename.replaceAll("[^\\p{L}\\p{N}._ -]","_");if(safe.length()>100)safe=safe.substring(0,100);if(safe.trim().isEmpty())safe="bail-export";
    try {
     ContentValues values=new ContentValues();values.put(MediaStore.MediaColumns.DISPLAY_NAME,safe);values.put(MediaStore.MediaColumns.MIME_TYPE,mime);values.put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/Bail");values.put(MediaStore.MediaColumns.IS_PENDING,1);

@@ -15,7 +15,7 @@ public class StudioTest {
   assertTrue("JavaScript response",done.await(10,TimeUnit.SECONDS));return value.get();
  }
  private void ready(ActivityScenario<MainActivity> scenario)throws Exception{
-  for(int i=0;i<60;i++){if("true".equals(js(scenario,"document.querySelectorAll('.scene-card').length===4")))return;Thread.sleep(500);}fail("Bundled studio did not load");
+  for(int i=0;i<60;i++){if("true".equals(js(scenario,"document.querySelectorAll('.scene-card').length===2")))return;Thread.sleep(500);}fail("Bundled studio did not load");
  }
  @Test public void bundledEditorLoadsAndNativeSaveWorks()throws Exception{
   try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
@@ -27,13 +27,20 @@ public class StudioTest {
  @Test public void canvasExportSavesActualVideo()throws Exception{
   try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
    ready(scenario);
-   js(scenario,"document.getElementById('prompt').value='A film.';document.getElementById('generate').click();true");
-   Thread.sleep(1000);
-   js(scenario,"document.getElementById('export').click();document.getElementById('quality').value='480';document.getElementById('export-start').click();true");
+   js(scenario,"document.getElementById('prompt').value='A city at night.';document.getElementById('generate').click();true");
+
    boolean saved=false;
    for(int i=0;i<60;i++){Thread.sleep(500);if("true".equals(js(scenario,"document.getElementById('toast').textContent.includes('Saved to Downloads')"))){saved=true;break;}}
-   assertTrue("Native export completes",saved);
+   assertTrue("Native export completes: "+js(scenario,"document.getElementById('export-status').textContent"),saved);
    scenario.onActivity(a->{assertNotNull(a.downloads.lastSaved);try(android.content.res.AssetFileDescriptor f=a.getContentResolver().openAssetFileDescriptor(a.downloads.lastSaved,"r")){assertNotNull(f);assertTrue("Nonempty video",f.getLength()>1000);}catch(Exception e){throw new AssertionError(e);}a.getContentResolver().delete(a.downloads.lastSaved,null,null);});
   }
  }
+ @Test public void imagePromptSavesPng()throws Exception{
+  try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+   ready(scenario);js(scenario,"document.getElementById('prompt').value='An ocean at sunset';document.getElementById('generate-image').click();true");
+   boolean saved=false;for(int i=0;i<40;i++){Thread.sleep(500);if("true".equals(js(scenario,"document.getElementById('generation-status').textContent.includes('Image generated and saved')"))){saved=true;break;}}
+   assertTrue("PNG saves from prompt",saved);scenario.onActivity(a->{assertNotNull(a.downloads.lastSaved);try(java.io.InputStream stream=a.getContentResolver().openInputStream(a.downloads.lastSaved)){byte[] signature=new byte[8];assertEquals(8,stream.read(signature));assertEquals(137,signature[0]&255);assertEquals(80,signature[1]&255);}catch(Exception e){throw new AssertionError(e);}a.getContentResolver().delete(a.downloads.lastSaved,null,null);});
+  }
+ }
+
 }

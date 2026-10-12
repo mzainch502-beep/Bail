@@ -1,8 +1,9 @@
+import {describe} from './scene-engine.js';
 import {compose,duration,frameAt,validateProject,workflowWithPrompt,videoOutputs,safeServer,MAX_SCENES} from './core.js';
 import {Renderer} from './renderer.js';
 import {saveProject,listProjects,deleteProject} from './storage.js';
 const $=id=>document.getElementById(id);
-let project={version:1,id:crypto.randomUUID(),name:'Your next chapter',prompt:$('prompt').value,style:'noir',ratio:'portrait',motion:'push',font:'sans',accent:'#d4ee9b',textSize:'regular',scenes:compose($('prompt').value),audio:null,audioName:'',updated:Date.now()};
+let project={version:1,id:crypto.randomUUID(),name:'Your next chapter',prompt:$('prompt').value,style:'noir',ratio:'portrait',motion:'push',font:'sans',accent:'#d4ee9b',textSize:'regular',visualMode:'illustrated',seed:0,scenes:compose($('prompt').value),audio:null,audioName:'',updated:Date.now()};
 let selected=0,time=0,playing=false,last=0,recording=false,recorder=null,renderCancelled=false,aiConfig=null,aiBusy=false,aiBlob=null,aiFilename=null,aiObjectURL=null,downloadURL=null;
 const renderer=new Renderer($('canvas'));
 const soundtrack=new Audio();soundtrack.loop=true;
@@ -13,7 +14,7 @@ function error(e){console.error(e);toast(e.message||'Something went wrong. Pleas
 function guard(fn){return async(...args)=>{try{await fn(...args);}catch(e){error(e);}};}
 function stop(){playing=false;$('play').textContent='▶';$('play').setAttribute('aria-label','Play preview');soundtrack.pause();}
 function motionMode(){
- $('ai-video').hidden=true;$('canvas').hidden=false;$('mode-badge').textContent='Motion graphics';$('scrub').disabled=false;$('play').disabled=false;$('back-motion').hidden=true;
+ $('ai-video').hidden=true;$('canvas').hidden=false;$('mode-badge').textContent=project.visualMode==='illustrated'?'Illustrated scenes':'Animated text';$('scrub').disabled=false;$('play').disabled=false;$('back-motion').hidden=true;
 }
 function aiMode(){stop();$('ai-video').hidden=false;$('canvas').hidden=true;$('mode-badge').textContent='AI footage';$('scrub').disabled=true;$('play').disabled=true;$('back-motion').hidden=false;}
 const back=document.createElement('button');back.id='back-motion';back.className='text-button';back.textContent='Back to motion';back.hidden=true;$('mode-badge').after(back);back.onclick=()=>{motionMode();draw();};
@@ -27,7 +28,7 @@ function refreshTimeline(){
 }
 function refresh(){
  selected=Math.min(selected,project.scenes.length-1);time=Math.min(time,duration(project.scenes));const scene=project.scenes[selected];
- $('prompt').value=project.prompt;$('char-count').textContent=`${project.prompt.length} / 1500`;$('ratio').value=project.ratio;$('motion').value=project.motion;$('font').value=project.font;$('accent').value=project.accent;$('text-size').value=project.textSize;
+ $('prompt').value=project.prompt;$('char-count').textContent=`${project.prompt.length} / 1500`;$('ratio').value=project.ratio;$('motion').value=project.motion;$('font').value=project.font;$('accent').value=project.accent;$('text-size').value=project.textSize;$('visual-mode').value=project.visualMode||'typography';$('scene-seed').value=project.seed||0;
  $('scene-text').value=scene.text;$('scene-duration').value=scene.duration;$('duration-label').value=`${scene.duration}s`;$('scene-number').textContent=`${String(selected+1).padStart(2,'0')} / ${String(project.scenes.length).padStart(2,'0')}`;
  $('image-remove').hidden=!scene.image;$('image-info').textContent=scene.image?'Photo added · slow camera movement enabled':'Add your photo for a cinematic camera move.';
  $('audio-info').textContent=project.audio?project.audioName:'Optional · use music you have permission to use';$('audio-remove').hidden=!project.audio;
@@ -53,7 +54,21 @@ $('play').onclick=guard(async()=>{
 });
 $('scrub').oninput=()=>{stop();time=Number($('scrub').value);draw();};
 $('prompt').oninput=()=>{project.prompt=$('prompt').value;$('char-count').textContent=`${project.prompt.length} / 1500`;project.updated=Date.now();};
-$('generate').onclick=guard(async()=>{if(recording)return;const scenes=compose($('prompt').value);stop();project.scenes=scenes;selected=0;time=0;motionMode();await renderer.preload(scenes);refresh();toast('Your story is ready. Select a scene to make it yours.');});
+async function preparePrompt(){
+ if(recording)return false;const scenes=compose($('prompt').value);const seed=Number($('scene-seed').value);if(!Number.isInteger(seed)||seed<0||seed>999999)throw new Error('Variation must be a whole number from 0 to 999999.');
+ stop();project.scenes=scenes;project.visualMode=$('visual-mode').value;project.seed=seed;project.prompt=$('prompt').value;project.name=project.prompt.slice(0,45)||'My film';selected=0;time=0;motionMode();await renderer.preload(scenes);refresh();
+ const themes=[...new Set(scenes.map(s=>describe(s.text,seed).theme))];$('generation-status').textContent=project.visualMode==='illustrated'?`Scene engine: ${themes.join(' · ')}`:'Animated typography';return true;
+}
+$('compose-preview').onclick=guard(async()=>{if(await preparePrompt())toast('Preview ready. Edit a scene or generate your video.');});
+$('generate').onclick=guard(async()=>{if(!await preparePrompt())return;$('export').click();$('quality').value=window.BailAndroid?'480':'720';$('export-start').click();});
+$('generate-image').onclick=guard(async()=>{
+ if(!await preparePrompt())return;stop();renderer.setSize(project.ratio,1080);renderer.draw(project,1);
+ const blob=await new Promise(resolve=>$('canvas').toBlob(resolve,'image/png'));if(!blob)throw new Error('Image generation failed.');
+ if(window.BailAndroid)await saveNative(blob,'bail-generated-image.png');else download(blob,'bail-generated-image.png');
+ $('generation-status').textContent='Image generated and saved as PNG.';toast(window.BailAndroid?'Image saved to Downloads / Bail':'Image downloaded.');renderer.setSize(project.ratio);draw();
+});
+$('visual-mode').onchange=()=>{project.visualMode=$('visual-mode').value;changed();refresh();};
+$('scene-seed').onchange=()=>{project.seed=Math.min(999999,Math.max(0,Number($('scene-seed').value)||0));changed();refresh();};
 for(const b of document.querySelectorAll('[data-style]'))b.onclick=()=>{if(recording)return;project.style=b.dataset.style;changed();refresh();};
 for(const [id,key] of [['ratio','ratio'],['motion','motion'],['font','font'],['accent','accent'],['text-size','textSize']])$(id).oninput=()=>{if(recording)return;project[key]=$(id).value;changed();refresh();};
 $('scene-text').oninput=()=>{if(recording)return;stop();project.scenes[selected].text=$('scene-text').value;changed();refreshTimeline();};
@@ -114,7 +129,7 @@ $('export-start').onclick=guard(async()=>{
  let stream=null,renderFrame=null;
  try{
   stop();motionMode();await renderer.preload(project.scenes);await document.fonts.ready;
-  const mime=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m));
+  const mime=['video/webm;codecs=vp8,opus','video/webm','video/mp4','video/webm;codecs=vp9,opus'].find(m=>MediaRecorder.isTypeSupported(m));
   if(!mime)throw new Error('Your browser has no supported video recording format.');
   renderer.setSize(project.ratio,Number($('quality').value));renderer.draw(project,0);stream=$('canvas').captureStream(30);
   if(project.audio){
@@ -132,41 +147,11 @@ $('export-start').onclick=guard(async()=>{
   await done;
   if(renderCancelled){$('export-status').textContent='Render cancelled. You can try again.';$('export-start').hidden=false;return;}
   const blob=new Blob(chunks,{type:recorder.mimeType});if(blob.size<100)throw new Error('The browser returned an empty recording.');
-  if(downloadURL)URL.revokeObjectURL(downloadURL);downloadURL=URL.createObjectURL(blob);$('download-video').href=downloadURL;$('download-video').download=`bail-${project.name.replace(/[^a-z0-9]/gi,'-').slice(0,40)}.${mime.includes('mp4')?'mp4':'webm'}`;$('download-video').hidden=false;$('export-status').textContent=`Your video is ready · ${(blob.size/1024/1024).toFixed(1)} MB`;$('download-video').click();
+  if(downloadURL)URL.revokeObjectURL(downloadURL);downloadURL=URL.createObjectURL(blob);$('download-video').href=downloadURL;$('download-video').download=`bail-${project.name.replace(/[^a-z0-9]/gi,'-').slice(0,40)}.${mime.includes('mp4')?'mp4':'webm'}`;$('download-video').hidden=false;$('export-status').textContent=`Your video is ready · ${(blob.size/1024/1024).toFixed(1)} MB`;if(window.BailAndroid){await saveNative(blob,$('download-video').download);$('export-status').textContent='Video saved to Downloads / Bail';}else $('download-video').click();$('generation-status').textContent='Video generated. Use Download video to save another copy.';
  }catch(e){$('export-status').textContent=e.message;$('export-start').hidden=false;throw e;}
  finally{if(renderFrame)cancelAnimationFrame(renderFrame);if(recorder?.state==='recording')recorder.stop();stream?.getTracks().forEach(t=>t.stop());soundtrack.pause();recorder=null;setBusy(false);$('export-cancel').hidden=true;renderer.setSize(project.ratio);draw();}
 });
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stop();if(recording){renderCancelled=true;if(recorder?.state==='recording')recorder.stop();$('export-status').textContent='Render interrupted because Bail moved into the background.';}}});
-// ComfyUI is explicitly opt-in. No shared secret or paid API is embedded in the app.
-$('ai-settings').onclick=()=>$('ai-dialog').showModal();
-async function request(url,options={}){const signal=options.signal||AbortSignal.timeout(20000);const r=await fetch(url,{...options,signal});if(!r.ok)throw new Error(`Model server returned ${r.status}. Check the workflow, access and CORS configuration.`);return r;}
-$('ai-connect').onclick=guard(async()=>{
- $('ai-connect-status').textContent='Checking your server…';try{const url=safeServer($('ai-url').value.trim(),location.protocol);const workflow=JSON.parse($('ai-workflow').value);workflowWithPrompt(workflow,'test','',42);await (await request(`${url}/system_stats`)).json();aiConfig={url,workflow};$('ai-state').textContent='Runtime connected · your ComfyUI server';$('ai-connect-status').textContent='Connected. Your workflow controls model, duration and resolution.';toast('AI runtime connected.');}catch(e){$('ai-connect-status').textContent=e.message;throw e;}
-});
-$('ai-disconnect').onclick=()=>{aiConfig=null;$('ai-state').textContent='No runtime connected';$('ai-connect-status').textContent='Disconnected.';toast('Runtime disconnected.');};
-$('ai-generate').onclick=guard(async()=>{
- if(aiBusy)return;if(!aiConfig){$('ai-dialog').showModal();toast('Connect your model server to generate AI footage.');return;}
- const text=$('prompt').value.trim();if(!text)throw new Error('Describe your cinematic shot first.');const seed=Number($('ai-seed').value);if(!Number.isInteger(seed)||seed<0||seed>2147483647)throw new Error('Seed must be a whole number from 0 to 2147483647.');
- const config=aiConfig;const workflow=workflowWithPrompt(config.workflow,text,$('ai-negative').value,seed);
- aiBusy=true;$('ai-generate').disabled=true;$('ai-state').textContent='Submitting your shot…';
- try{
-  const queued=await (await request(`${config.url}/prompt`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:workflow,client_id:crypto.randomUUID()})})).json();
-  if(!queued.prompt_id||Object.keys(queued.node_errors||{}).length)throw new Error('Your server rejected the workflow. Check installed models and nodes.');
-  const started=Date.now();let output;
-  while(Date.now()-started<30*60*1000){
-   await new Promise(resolve=>setTimeout(resolve,2500));const history=await(await request(`${config.url}/history/${encodeURIComponent(queued.prompt_id)}`)).json();const item=history[queued.prompt_id];
-   if(item?.status?.status_str==='error')throw new Error('The AI workflow failed on your server. Open ComfyUI for the error details.');
-   const files=videoOutputs(item?.outputs);if(files.length){output=files[0];break;}
-   if(item?.status?.completed)throw new Error('Workflow completed without a video. Add a video-saving output node to your workflow.');
-   $('ai-state').textContent=`Generating on your server · ${Math.round((Date.now()-started)/1000)}s`;
-  }
-  if(!output)throw new Error('Generation timed out after 30 minutes. Your server job may still be running.');
-  const params=new URLSearchParams({filename:output.filename,subfolder:output.subfolder||'',type:output.type||'output'});
-  const response=await request(`${config.url}/view?${params}`);const blob=await response.blob();if(blob.size>200*1024*1024)throw new Error('Video exceeds the 200 MB browser import limit. Download it directly from ComfyUI.');
-  const type=/\.webm$/i.test(output.filename)?'video/webm':/\.mov$/i.test(output.filename)?'video/quicktime':'video/mp4';aiBlob=new Blob([blob],{type});aiFilename=`bail-ai-film.${output.filename.split('.').pop().toLowerCase()}`;if(aiObjectURL)URL.revokeObjectURL(aiObjectURL);aiObjectURL=URL.createObjectURL(aiBlob);$('ai-video').src=aiObjectURL;aiMode();$('ai-state').textContent='Your AI shot is ready. Export downloads the original footage.';toast('AI footage is ready.');
- }catch(e){$('ai-state').textContent=`Generation failed: ${e.message}`;throw e;}
- finally{aiBusy=false;$('ai-generate').disabled=false;}
-});
-window.addEventListener('beforeunload',e=>{if(recording||aiBusy){e.preventDefault();e.returnValue='';}});
+window.addEventListener('beforeunload',e=>{if(recording){e.preventDefault();e.returnValue='';}});
 if(!window.BailAndroid && 'serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 refresh();requestAnimationFrame(tick);

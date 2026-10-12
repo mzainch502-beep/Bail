@@ -1,3 +1,4 @@
+import {paintScene} from './scene-engine.js';
 import {frameAt,RATIOS,FONTS} from './core.js';
 const TAU=Math.PI*2;
 const clamp=(x)=>Math.max(0,Math.min(1,x));
@@ -35,7 +36,9 @@ export class Renderer{
    const drift=project.motion==='drift'?Math.sin(progress*Math.PI)*w*.03:0;
    c.drawImage(image,(w-image.width*fit)/2+drift,(h-image.height*fit)/2,image.width*fit,image.height*fit);
    const overlay=c.createLinearGradient(0,0,0,h);overlay.addColorStop(0,'#0000001a');overlay.addColorStop(.5,'#00000045');overlay.addColorStop(1,'#000000aa');c.fillStyle=overlay;c.fillRect(0,0,w,h);
-  }else this.background(project,index,local,progress,w,h,s);
+  }else if(project.visualMode==='illustrated')paintScene(c,w,h,scene.text,local,project.motion,project.seed||0,project.style,project.accent);
+  else this.background(project,index,local,progress,w,h,s);
+  if(project.visualMode==='illustrated'){c.restore();return;}
   const light=project.style==='editorial'&&!image;
   c.fillStyle=light?'#33402b':'#f8f6ee';c.textAlign='center';c.textBaseline='middle';
   c.globalAlpha=clamp(anim)*clamp((scene.duration-local)/.35);
