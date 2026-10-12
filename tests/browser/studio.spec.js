@@ -7,6 +7,7 @@ test('compose, edit, reorder, save and restore a story',async({page})=>{
  await page.locator('#save').click();await page.locator('#project-name').fill('My first film');await page.locator('#save-confirm').click();await page.getByRole('button',{name:'My projects',exact:true}).click();await expect(page.locator('.project-card')).toContainText('My first film');
  await page.getByRole('button',{name:'Open story'}).click();await expect(page.locator('#project-name-display')).toHaveText('My first film');await expect(page.locator('.scene-card')).toHaveCount(2);
  expect(errors).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+ await page.screenshot({path:`test-results/studio-${test.info().project.name}.png`,fullPage:true});
 });
 test('video export produces a nonempty downloadable recording',async({page})=>{
  await page.goto('/');await page.locator('#prompt').fill('A film.');await page.locator('#generate').click();await page.locator('#export').click();await page.locator('#quality').selectOption('480');const waiting=page.waitForEvent('download');await page.locator('#export-start').click();const download=await waiting;expect(download.suggestedFilename()).toMatch(/\.(webm|mp4)$/);await expect(page.locator('#export-status')).toContainText('Your video is ready');
