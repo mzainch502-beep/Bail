@@ -4,3 +4,5 @@ dialog{overflow:hidden}dialog>form{display:flex;justify-content:flex-end;height:
 @media(max-width:720px){textarea,input:not([type=range]):not([type=color]),select{font-size:16px}label{font-size:12px}dialog p{font-size:14px}}
 /* Size modal panels against the viewport, independently of page scroll width. */
 dialog{position:fixed;inset:auto;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(100vw - 32px);max-width:480px;min-width:0;max-height:calc(100dvh - 32px);margin:0}.dialog-body{max-height:calc(100dvh - 150px);min-width:0}
+.workspace>*{min-width:0}.preview-heading{flex-wrap:wrap}.preview-heading>div{min-width:0;flex:1}
+@media(max-width:720px){html,body{overflow-x:clip}dialog{left:16px;top:16px;transform:none;width:calc(100vw - 32px)}.preview-heading #back-motion{flex-basis:100%;text-align:right}}
