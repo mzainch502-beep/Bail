@@ -9,7 +9,7 @@ export function describe(prompt,seed=0){
 }
 const disk=(c,x,y,r,color)=>{c.fillStyle=color;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();};
 function poly(c,points,color){c.fillStyle=color;c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fill();}
-function gradient(c,x,y,r,col){const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,col);g.addColorStop(1,col+'00');c.fillStyle=g;c.fillRect(x-r,y-r,r*2,r*2);}
+function gradient(c,x,y,r,col){const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,col);g.addColorStop(1,col.slice(0,7)+'00');c.fillStyle=g;c.fillRect(x-r,y-r,r*2,r*2);}
 export function paintScene(c,w,h,prompt,t=0,motion='push',seed=0,style='noir',accent='#d4ee9b'){
  const d=describe(prompt,seed),random=rng(d.seed),at=motion==='still'?0:t;if(accent!=='#d4ee9b'&&/^#[a-f0-9]{6}$/i.test(accent))d.color=accent;
  c.save();const zoom=motion==='push'?1+at*.012:1.04;
